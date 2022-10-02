@@ -59,7 +59,9 @@ openClientServer()
                        name_.c_str(), domain_, is_server_))
     return false;
 
-  fd_ = socket(domain_, SOCK_STREAM, 0);
+  int protocol = 0;
+
+  fd_ = ::socket(domain_, SOCK_STREAM, protocol);
 
   if (fd_ < 0)
     return false;
@@ -107,7 +109,7 @@ waitServer()
   while (true) {
     fd_set fd_set_read = fd_set_;
 
-    if (select(fd_hwm_ + 1, &fd_set_read, NULL, NULL, NULL) < 0)
+    if (select(fd_hwm_ + 1, &fd_set_read, nullptr, nullptr, nullptr) < 0)
       return false;
 
     for (int fd = 0; fd <= fd_hwm_; ++fd) {
@@ -320,21 +322,22 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, int domain
 
     char *nodename = strdup(name);
 
-    char *servicename = strchr(nodename, ':');
+    // <host>:<port>
+    char *pc = strchr(nodename, ':');
 
-    if (servicename == NULL) {
+    if (pc == nullptr) {
       free(nodename);
       errno = EINVAL;
       return false;
     }
 
-    *servicename = '\0';
+    *pc = '\0';
 
-    ++servicename;
+    const char *portName = pc + 1;
 
-    struct addrinfo *info = NULL;
+    struct addrinfo *info = nullptr;
 
-    if (getaddrinfo(nodename, servicename, &hint, &info) != 0) {
+    if (getaddrinfo(nodename, portName, &hint, &info) != 0) {
       free(nodename);
       freeaddrinfo(info);
       errno = EINVAL;
@@ -355,35 +358,63 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, int domain
 
 int
 CSocket::
-getFreePort()
+getFreePort(int startPort)
 {
   int socket = ::socket(AF_INET, SOCK_STREAM, 0);
   if (socket == -1) return -1;
 
-  uint16_t port = 0;
+  std::string errMsg;
 
-  struct sockaddr_in sin;
+  bool connected = false;
 
-  sin.sin_port        = htons(port);
-  sin.sin_addr.s_addr = 0;
-  sin.sin_addr.s_addr = INADDR_ANY;
-  sin.sin_family      = AF_INET;
+  uint16_t port = uint16_t(startPort);
 
-  if (bind(socket, reinterpret_cast<struct sockaddr *>(&sin), sizeof(struct sockaddr_in)) == -1) {
-    if (errno == EADDRINUSE)
-      std::cerr << "Port in use\n";
-    return -1;
+  while (! connected) {
+    bool rc = true;
+
+    struct sockaddr_in sin;
+
+    sin.sin_port        = htons(port);
+    sin.sin_addr.s_addr = INADDR_ANY;
+    sin.sin_family      = AF_INET;
+
+    if (bind(socket, reinterpret_cast<struct sockaddr *>(&sin), sizeof(struct sockaddr_in)) == -1) {
+      if (errno == EADDRINUSE)
+        errMsg = "Port in use";
+      else
+        errMsg = "Bind failed";
+      rc = false;
+    }
+
+    if (rc) {
+      socklen_t len = sizeof(sin);
+
+      if (getsockname(socket, reinterpret_cast<struct sockaddr *>(&sin), &len) == -1) {
+        errMsg = "Failed to get socket name";
+        rc = false;
+      }
+    }
+
+    if (rc) {
+      port = ntohs(sin.sin_port);
+
+      ::close(socket);
+
+      connected = true;
+
+      break;
+    }
+
+    if (startPort == 0)
+      break;
+
+    ++port;
   }
 
-  socklen_t len = sizeof(sin);
-  if (getsockname(socket, reinterpret_cast<struct sockaddr *>(&sin), &len) == -1) {
-    std::cerr << "Failed to get socket name\n";
+  if (! connected) {
+    std::cerr << errMsg << "\n";
     return -1;
   }
-
-  port = ntohs(sin.sin_port);
-
-  ::close(socket);
 
   return port;
 }

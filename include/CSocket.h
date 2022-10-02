@@ -6,7 +6,7 @@
 
 class CSocket {
  public:
-  static int getFreePort();
+  static int getFreePort(int startPort=0);
 
  public:
   CSocket(const std::string &name);

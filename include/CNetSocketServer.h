@@ -5,13 +5,6 @@
 #include <sys/socket.h>
 
 class CNetSocketServer {
- private:
-  int         fd_;
-  int         fd_client_;
-  std::string hostname_;
-  fd_set      fd_set_;
-  int         fd_hwm_;
-
  public:
   CNetSocketServer(const std::string &hostname);
  ~CNetSocketServer();
@@ -34,6 +27,13 @@ class CNetSocketServer {
   void resetFdHWM(int fd);
 
   bool makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *hostname);
+
+ private:
+  int         fd_        { -1 };
+  int         fd_client_ { -1 };
+  std::string hostname_;
+  fd_set      fd_set_;
+  int         fd_hwm_    { 0 };
 };
 
 #endif

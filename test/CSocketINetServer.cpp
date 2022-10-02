@@ -38,9 +38,14 @@ static bool send_content(CSocket *socket, const std::string &path);
 int
 main(int argc, char **argv)
 {
-  int port = CSocket::getFreePort();
+  int port = 0;
 
-  std::string hostname = "//" + COSUser::getHostName() + ":" + std::to_string(port);
+  for (int i = 1; i < argc; ++i)
+    port = std::atoi(argv[i]);
+
+  int freePort = CSocket::getFreePort(port);
+
+  auto hostname = "//" + COSUser::getHostName() + ":" + std::to_string(freePort);
 
   std::cerr << hostname << "\n";
 

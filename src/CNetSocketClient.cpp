@@ -12,7 +12,7 @@
 
 CNetSocketClient::
 CNetSocketClient(const std::string &hostname) :
- fd_(-1), hostname_(hostname)
+ hostname_(hostname)
 {
 }
 
@@ -36,7 +36,9 @@ open()
 
   // Open socket
 
-  fd_ = socket(AF_INET, SOCK_STREAM, 0);
+  int protocol = 0;
+
+  fd_ = ::socket(AF_INET, SOCK_STREAM, protocol);
 
   if (fd_ < 0)
     return false;
@@ -53,7 +55,7 @@ open()
 
   // Connect socket
 
-  if (connect(fd_, reinterpret_cast<struct sockaddr *>(&sa), sa_len) != 0)
+  if (::connect(fd_, reinterpret_cast<struct sockaddr *>(&sa), sa_len) != 0)
     return false;
 
   return true;
@@ -130,14 +132,14 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *hostname)
 
   char *servicename = strchr(nodename.get(), ':');
 
-  if (servicename == NULL) {
+  if (! servicename) {
     errno = EINVAL;
     return false;
   }
 
   *servicename = '\0';
 
-  ++servicename;
+  ++servicename; // service name points to port number
 
   CAutoFreeAddrInfo info;
 

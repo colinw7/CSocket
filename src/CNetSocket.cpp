@@ -11,14 +11,14 @@
 
 CNetSocket::
 CNetSocket(const std::string &name) :
- is_server_(false), fd_(-1), fd_client_(-1), name_(name), fd_hwm_(0)
+ name_(name)
 {
 }
 
 CNetSocket::
 ~CNetSocket()
 {
-  if (fd_ != 0)
+  if (fd_)
     close();
 }
 
@@ -51,7 +51,7 @@ openClientServer()
                        name_.c_str(), is_server_))
     return false;
 
-  fd_ = socket(AF_INET, SOCK_STREAM, 0);
+  fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
 
   if (fd_ < 0)
     return false;
@@ -83,6 +83,7 @@ openClientServer()
   return true;
 }
 
+// wait for server to connect to client
 bool
 CNetSocket::
 waitServer()
@@ -97,7 +98,7 @@ waitServer()
   while (true) {
     fd_set fd_set_read = fd_set_;
 
-    if (select(fd_hwm_ + 1, &fd_set_read, NULL, NULL, NULL) < 0)
+    if (::select(fd_hwm_ + 1, &fd_set_read, nullptr, nullptr, nullptr) < 0)
       return false;
 
     for (int fd = 0; fd <= fd_hwm_; ++fd) {
@@ -127,6 +128,7 @@ waitServer()
   }
 }
 
+// client writes data to server
 bool
 CNetSocket::
 writeServer(const std::string &str)
@@ -134,6 +136,7 @@ writeServer(const std::string &str)
   return writeServer(str.c_str(), str.size());
 }
 
+// client writes data to server
 bool
 CNetSocket::
 writeServer(const char *data, size_t size)
@@ -142,6 +145,7 @@ writeServer(const char *data, size_t size)
   return COSRead::writeall(fd_, data, size);
 }
 
+// server writes data to client
 bool
 CNetSocket::
 writeClient(const std::string &str)
@@ -149,6 +153,7 @@ writeClient(const std::string &str)
   return writeClient(str.c_str(), str.size());
 }
 
+// server writes data to client
 bool
 CNetSocket::
 writeClient(const char *data, size_t size)
@@ -160,6 +165,7 @@ writeClient(const char *data, size_t size)
   return COSRead::writeall(fd_client_, data, size);
 }
 
+// client reads data from server
 bool
 CNetSocket::
 readServer(std::string &str)
@@ -178,6 +184,7 @@ readServer(std::string &str)
   return true;
 }
 
+// client reads data from server
 bool
 CNetSocket::
 readServer(char *data, size_t size, int *nread)
@@ -191,6 +198,7 @@ readServer(char *data, size_t size, int *nread)
   return true;
 }
 
+// server reads data from client
 bool
 CNetSocket::
 readClient(std::string &str)
@@ -206,6 +214,7 @@ readClient(std::string &str)
   return true;
 }
 
+// server reads data from client
 bool
 CNetSocket::
 readClient(char *data, size_t size, int *nread)
@@ -290,9 +299,10 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, bool will_
 
   char *nodename = strdup(name);
 
+  // <name>:<port>
   char *servicename = strchr(nodename, ':');
 
-  if (servicename == NULL) {
+  if (! servicename) {
     free(nodename);
     errno = EINVAL;
     return false;
@@ -300,9 +310,9 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, bool will_
 
   *servicename = '\0';
 
-  ++servicename;
+  ++servicename; // port
 
-  struct addrinfo *info = NULL;
+  struct addrinfo *info = nullptr;
 
   if (getaddrinfo(nodename, servicename, &hint, &info) != 0) {
     free(nodename);

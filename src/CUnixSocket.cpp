@@ -12,15 +12,14 @@
 
 CUnixSocket::
 CUnixSocket(const std::string &name) :
- is_server_(false), fd_(-1), fd_client_(-1), name_(name), fd_hwm_(0),
- datagram_(false), abstract_(false)
+ name_(name)
 {
 }
 
 CUnixSocket::
 ~CUnixSocket()
 {
-  if (fd_ != 0)
+  if (fd_)
     close();
 }
 
@@ -56,10 +55,10 @@ openClientServer()
                        name_.c_str(), abstract_))
     return false;
 
-  if (datagram_)
-    fd_ = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (isDatagram())
+    fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
   else
-    fd_ = socket(AF_UNIX, SOCK_DGRAM , 0);
+    fd_ = ::socket(AF_UNIX, SOCK_DGRAM , 0);
 
   if (fd_ < 0)
     return false;
@@ -72,7 +71,7 @@ openClientServer()
     if (bind(fd_, reinterpret_cast<struct sockaddr *>(&sa), sa_len) == -1)
       return false;
 
-    if (! datagram_) {
+    if (! isDatagram()) {
       if (listen(fd_, SOMAXCONN) != 0)
         return false;
     }
@@ -80,7 +79,7 @@ openClientServer()
     FD_SET(fd_, &fd_set_);
   }
   else {
-    if (! datagram_) {
+    if (! isDatagram()) {
       if (connect(fd_, reinterpret_cast<struct sockaddr *>(&sa), sa_len) != 0)
         return false;
     }
@@ -109,7 +108,7 @@ waitServer()
     return false;
   }
 
-  if (datagram_)
+  if (isDatagram())
     return true;
 
   fd_client_ = -1;
@@ -117,7 +116,7 @@ waitServer()
   while (true) {
     fd_set fd_set_read = fd_set_;
 
-    if (select(fd_hwm_ + 1, &fd_set_read, NULL, NULL, NULL) < 0)
+    if (::select(fd_hwm_ + 1, &fd_set_read, nullptr, nullptr, nullptr) < 0)
       return false;
 
     for (int fd = 0; fd <= fd_hwm_; ++fd) {
@@ -160,7 +159,7 @@ bool
 CUnixSocket::
 writeServer(const char *data, size_t size)
 {
-  if (! datagram_) {
+  if (! isDatagram()) {
     //TODO: use send
     return COSRead::writeall(fd_, data, size);
   }
@@ -192,7 +191,7 @@ writeClient(const char *data, size_t size)
   if (fd_client_ < 0)
     return false;
 
-  if (! datagram_) {
+  if (! isDatagram()) {
     //TODO: use send
     return COSRead::writeall(fd_client_, data, size);
   }
@@ -232,7 +231,7 @@ bool
 CUnixSocket::
 readServer(char *data, size_t size, int *nread)
 {
-  if (! datagram_) {
+  if (! isDatagram()) {
     //TODO: use recv
     *nread = int(::read(fd_, data, size));
 
@@ -293,7 +292,7 @@ readClient(char *data, size_t size, int *nread)
   if (fd_client_ < 0)
     return false;
 
-  if (! datagram_) {
+  if (! isDatagram()) {
     //TODO: use recv
     *nread = int(::read(fd_client_, data, size));
 
@@ -373,7 +372,7 @@ bool
 CUnixSocket::
 makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, bool abstract)
 {
-  struct sockaddr_un *sun = reinterpret_cast<struct sockaddr_un *>(sa);
+  auto *sun = reinterpret_cast<struct sockaddr_un *>(sa);
 
   if (strlen(name) >= sizeof(sun->sun_path)) {
     errno = ENAMETOOLONG;

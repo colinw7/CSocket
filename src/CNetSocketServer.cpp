@@ -12,7 +12,7 @@
 
 CNetSocketServer::
 CNetSocketServer(const std::string &hostname) :
- fd_(-1), fd_client_(-1), hostname_(hostname), fd_hwm_(0)
+ hostname_(hostname)
 {
 }
 
@@ -36,7 +36,9 @@ open()
 
   // Open socket
 
-  fd_ = socket(AF_INET, SOCK_STREAM, 0);
+  int protocol = 0; // IPPROTO_TCP
+
+  fd_ = ::socket(AF_INET, SOCK_STREAM, protocol);
 
   if (fd_ < 0)
     return false;
@@ -75,7 +77,7 @@ wait()
   while (true) {
     fd_set fd_set_read = fd_set_;
 
-    if (select(fd_hwm_ + 1, &fd_set_read, NULL, NULL, NULL) < 0)
+    if (select(fd_hwm_ + 1, &fd_set_read, nullptr, nullptr, nullptr) < 0)
       return false;
 
     for (int fd = 0; fd <= fd_hwm_; ++fd) {
@@ -215,20 +217,21 @@ makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *hostname)
 
   CAutoFree<char> nodename = strdup(hostname);
 
-  char *servicename = strchr(nodename.get(), ':');
+  // <name>:<port>
+  char *pc = strchr(nodename.get(), ':');
 
-  if (servicename == NULL) {
+  if (! pc) {
     errno = EINVAL;
     return false;
   }
 
-  *servicename = '\0';
+  *pc = '\0';
 
-  ++servicename;
+  const char *portStr = pc + 1;
 
   CAutoFreeAddrInfo info;
 
-  if (getaddrinfo(nodename.get(), servicename, &hint, &info) != 0) {
+  if (getaddrinfo(nodename.get(), portStr, &hint, &info) != 0) {
     errno = EINVAL;
     return false;
   }

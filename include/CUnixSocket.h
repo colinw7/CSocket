@@ -4,24 +4,21 @@
 #include <string>
 #include <sys/socket.h>
 
+/*!
+ * Create socket for named unix file
+ */
 class CUnixSocket {
- private:
-  bool        is_server_;
-  int         fd_;
-  int         fd_client_;
-  std::string name_;
-  fd_set      fd_set_;
-  int         fd_hwm_;
-  bool        datagram_;
-  bool        abstract_;
-
  public:
   CUnixSocket(const std::string &name);
 
   virtual ~CUnixSocket();
 
+  //! get/set is datagram (SOCK_DGRAM : UDP) instead of default stream (SOCK_STREAM)
+  bool isDatagram() const { return datagram_; }
   void setDatagram(bool datagram) { datagram_ = datagram; }
 
+  //! get/set is abstract (?)
+  bool isAbstract() const { return abstract_; }
   void setAbstract(bool abstract) { abstract_ = abstract; }
 
   bool openClient();
@@ -54,6 +51,16 @@ class CUnixSocket {
   void resetFdHWM(int fd);
 
   static bool makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *name, bool abstract);
+
+ private:
+  bool        is_server_ { false };
+  int         fd_        { -1 };
+  int         fd_client_ { -1 };
+  std::string name_;
+  fd_set      fd_set_;
+  int         fd_hwm_    { 0 };
+  bool        datagram_  { false };
+  bool        abstract_  { false };
 };
 
 #endif

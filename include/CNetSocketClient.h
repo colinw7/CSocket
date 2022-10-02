@@ -5,10 +5,6 @@
 #include <sys/socket.h>
 
 class CNetSocketClient {
- private:
-  int         fd_;
-  std::string hostname_;
-
  public:
   CNetSocketClient(const std::string &hostname);
  ~CNetSocketClient();
@@ -25,6 +21,10 @@ class CNetSocketClient {
 
  private:
   bool makeSocketAddr(struct sockaddr *sa, socklen_t *len, const char *hostname);
+
+ private:
+  int         fd_ { -1 };
+  std::string hostname_;
 };
 
 #endif
